@@ -58,7 +58,7 @@
       <HintPath>..\packages\Microsoft.IO.RecyclableMemoryStream.3.0.1\lib\netstandard2.0\Microsoft.IO.RecyclableMemoryStream.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="System" />
@@ -134,6 +134,12 @@
     </Compile>
     <Compile Include="HomeForm.Designer.cs">
       <DependentUpon>HomeForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="LanguageConfigForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="LanguageConfigForm.Designer.cs">
+      <DependentUpon>LanguageConfigForm.cs</DependentUpon>
     </Compile>
     <Compile Include="LayoutHelper.cs" />
     <Compile Include="MessageTranslatorForm.cs">

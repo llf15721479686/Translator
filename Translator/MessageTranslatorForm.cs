@@ -150,18 +150,6 @@ namespace Translator
                 AutoScroll = false // 父容器不滚动
             };
 
-            // 语言标签
-            //Label languageLabel = new Label
-            //{
-            //    Text = "翻译结果：",
-            //    Font = new Font("微软雅黑", 10, FontStyle.Bold),
-            //    Dock = DockStyle.Left,
-            //    TextAlign = ContentAlignment.MiddleLeft,
-            //    Width = 100,
-            //    Padding = new Padding(10, 0, 0, 0),
-            //    ForeColor = Color.FromArgb(52, 73, 94)
-            //};
-
             languageButtonsPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
