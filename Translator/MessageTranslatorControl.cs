@@ -1,18 +1,14 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Translator
 {
-    // Form1.cs - 添加新的翻译窗体
-
-    public partial class MessageTranslatorForm : Form
+    public partial class MessageTranslatorControl : UserControl
     {
         private List<LanguageInfo> languages;
         private string[] sourceTexts;
@@ -24,50 +20,21 @@ namespace Translator
         private Dictionary<string, Button> languageCopyButtons;
         private Panel scrollPanel;
 
-        public MessageTranslatorForm(string[] texts)
+        public MessageTranslatorControl()
         {
-            this.sourceTexts = texts;
-            this.languages = GetSupportedLanguages();
-            this.prefixTextBoxes = new List<TextBox>();
-            this.translations = new Dictionary<string, Dictionary<int, string>>();
-            this.languageCopyButtons = new Dictionary<string, Button>();
-
             InitializeComponent();
             InitializeUI();
-        }
-
-        private List<LanguageInfo> GetSupportedLanguages()
-        {
-            return new List<LanguageInfo>
-            {
-                new LanguageInfo { Name = "英语", Code = "1033" },
-                new LanguageInfo { Name = "阿拉伯语", Code = "1025" },
-                new LanguageInfo { Name = "德语", Code = "1031" },
-                new LanguageInfo { Name = "法语", Code = "1036" },
-                new LanguageInfo { Name = "意大利语", Code = "1040" },
-                new LanguageInfo { Name = "葡萄牙语", Code = "1046" },
-                new LanguageInfo { Name = "俄语", Code = "1049" },
-                new LanguageInfo { Name = "泰语", Code = "1054" },
-                new LanguageInfo { Name = "印度尼西亚语", Code = "1057" },
-                new LanguageInfo { Name = "越南语", Code = "1066" },
-                new LanguageInfo { Name = "马来西亚", Code = "1086" },
-                new LanguageInfo { Name = "西班牙语", Code = "3082" }
-            };
         }
 
         private void InitializeComponent()
         {
             this.SuspendLayout();
             // 
-            // MessageTranslatorForm
+            // MessageTranslatorControl
             // 
             this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(1082, 703);
-            this.Font = new System.Drawing.Font("微软雅黑", 10F);
-            this.MinimumSize = new System.Drawing.Size(900, 600);
-            this.Name = "MessageTranslatorForm";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "消息翻译器";
+            this.Name = "MessageTranslatorControl";
+            this.Size = new System.Drawing.Size(1839, 842);
             this.ResumeLayout(false);
 
         }
@@ -81,7 +48,7 @@ namespace Translator
                 Padding = new Padding(15)
             };
 
-            // 顶部按钮面板 - 调整为更紧凑
+            // 顶部按钮面板
             Panel topPanel = new Panel
             {
                 Dock = DockStyle.Top,
@@ -113,12 +80,11 @@ namespace Translator
             btnTranslate.FlatAppearance.MouseOverBackColor = Color.FromArgb(46, 204, 113);
             btnTranslate.Click += BtnTranslate_Click;
 
-         
-            topFlow.Controls.AddRange(new Control[] { btnTranslate });
+            topFlow.Controls.Add(btnTranslate);
             topPanel.Controls.Add(topFlow);
             mainContainer.Controls.Add(topPanel);
 
-            // 内容区域 - 使用滚动面板
+            // 内容区域
             scrollPanel = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -138,40 +104,80 @@ namespace Translator
                 MinimumSize = new Size(600, 0)
             };
 
-            // 创建原文和前缀输入框的行
-            CreateMessageRows();
-
             scrollPanel.Controls.Add(mainPanel);
             mainContainer.Controls.Add(scrollPanel);
 
-            // 语言复制按钮区域 - 修改这部分
+            // 语言复制按钮区域
             Panel languagePanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 90, // 增加高度到90px，给两行按钮足够的空间
+                Height = 90,
                 Padding = new Padding(10, 5, 10, 5),
                 Visible = false,
                 BackColor = Color.FromArgb(250, 250, 250),
-                BorderStyle = BorderStyle.FixedSingle,
-                AutoScroll = false // 父容器不滚动
+                BorderStyle = BorderStyle.FixedSingle
             };
 
             languageButtonsPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true, // 启用换行
-                AutoScroll = false, // 禁用滚动条
-                Padding = new Padding(5, 5, 0, 5), // 增加上下内边距
-                AutoSize = true, // 允许自动调整大小
-                AutoSizeMode = AutoSizeMode.GrowAndShrink // 根据内容调整
+                WrapContents = true,
+                AutoScroll = false,
+                Padding = new Padding(5, 5, 0, 5),
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink
             };
 
-            //languagePanel.Controls.Add(languageLabel);
             languagePanel.Controls.Add(languageButtonsPanel);
             mainContainer.Controls.Add(languagePanel);
 
             this.Controls.Add(mainContainer);
+        }
+
+        private List<LanguageInfo> GetSupportedLanguages()
+        {
+            return new List<LanguageInfo>
+            {
+                new LanguageInfo { Name = "英语", Code = "1033" },
+                new LanguageInfo { Name = "阿拉伯语", Code = "1025" },
+                new LanguageInfo { Name = "德语", Code = "1031" },
+                new LanguageInfo { Name = "法语", Code = "1036" },
+                new LanguageInfo { Name = "意大利语", Code = "1040" },
+                new LanguageInfo { Name = "葡萄牙语", Code = "1046" },
+                new LanguageInfo { Name = "俄语", Code = "1049" },
+                new LanguageInfo { Name = "泰语", Code = "1054" },
+                new LanguageInfo { Name = "印度尼西亚语", Code = "1057" },
+                new LanguageInfo { Name = "越南语", Code = "1066" },
+                new LanguageInfo { Name = "马来西亚", Code = "1086" },
+                new LanguageInfo { Name = "西班牙语", Code = "3082" }
+            };
+        }
+
+        public void SetMessages(string[] messages)
+        {
+            this.sourceTexts = messages;
+            this.languages = GetSupportedLanguages();
+            this.prefixTextBoxes = new List<TextBox>();
+            this.translations = new Dictionary<string, Dictionary<int, string>>();
+            this.languageCopyButtons = new Dictionary<string, Button>();
+
+            CreateMessageRows();
+
+            // 隐藏语言按钮区域
+            foreach (Control ctrl in this.Controls)
+            {
+                if (ctrl is Panel mainContainer)
+                {
+                    foreach (Control innerCtrl in mainContainer.Controls)
+                    {
+                        if (innerCtrl is Panel languagePanel && innerCtrl.Dock == DockStyle.Bottom)
+                        {
+                            innerCtrl.Visible = false;
+                        }
+                    }
+                }
+            }
         }
 
         private void CreateMessageRows()
@@ -179,7 +185,10 @@ namespace Translator
             mainPanel.Controls.Clear();
             prefixTextBoxes.Clear();
 
-            // 表头 - 调整高度和样式
+            if (sourceTexts == null || sourceTexts.Length == 0)
+                return;
+
+            // 表头
             Panel headerRow = CreateRow("原文", "消息标识前缀", true);
             headerRow.Height = 40;
             headerRow.BackColor = Color.FromArgb(52, 73, 94);
@@ -294,6 +303,13 @@ namespace Translator
 
         private async void BtnTranslate_Click(object sender, EventArgs e)
         {
+            if (sourceTexts == null || sourceTexts.Length == 0)
+            {
+                MessageBox.Show("请先在翻译表格页面输入要翻译的消息文本", "提示",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             // 验证所有前缀是否已输入
             for (int i = 0; i < prefixTextBoxes.Count; i++)
             {
@@ -316,9 +332,21 @@ namespace Translator
 
                 // 创建语言复制按钮
                 CreateLanguageCopyButtons();
-                if (languageButtonsPanel.Parent != null)
+
+                // 显示语言按钮区域
+                foreach (Control ctrl in this.Controls)
                 {
-                    languageButtonsPanel.Parent.Visible = true;
+                    if (ctrl is Panel mainContainer)
+                    {
+                        foreach (Control innerCtrl in mainContainer.Controls)
+                        {
+                            if (innerCtrl is Panel languagePanel && innerCtrl.Dock == DockStyle.Bottom)
+                            {
+                                innerCtrl.Visible = true;
+                                break;
+                            }
+                        }
+                    }
                 }
 
                 // 并行翻译所有语言
@@ -378,10 +406,9 @@ namespace Translator
                             result = await Task.Run(() => BaiduTranslatorHelper.TranslateWithoutCache(text, "中文", language.Name));
                         }
 
-                        // 保存到缓存 - 修改参数顺序
+                        // 保存到缓存
                         if (!result.Contains("翻译失败") && !result.Contains("API错误"))
                         {
-                            // 修改这里：参数顺序改为 text, "中文", language.Name, result
                             DatabaseHelper.SaveTranslation(text, "中文", language.Name, result);
                         }
                     }
@@ -397,14 +424,13 @@ namespace Translator
                     translations[language.Name] = langTranslations;
                 }
 
-                // 启用该语言的复制按钮 - 这里也需要更新按钮文本显示编码
+                // 启用该语言的复制按钮
                 this.Invoke((MethodInvoker)delegate
                 {
                     if (languageCopyButtons.TryGetValue(language.Name, out Button btn))
                     {
                         btn.Enabled = true;
                         btn.BackColor = Color.FromArgb(52, 152, 219);
-                        // 确保按钮文本显示编码
                         btn.Text = $"{language.Name}({language.Code})";
                     }
                 });
@@ -428,33 +454,28 @@ namespace Translator
             languageButtonsPanel.Controls.Clear();
             languageCopyButtons.Clear();
 
-            // 增大按钮宽度以适应编码显示
-            int buttonWidth = 150; // 从95增加到120
+            int buttonWidth = 150;
             int buttonMargin = 6;
-            int panelWidth = languageButtonsPanel.Width - languageButtonsPanel.Padding.Horizontal;
-            int buttonsPerRow = Math.Max(1, panelWidth / (buttonWidth + buttonMargin));
 
             foreach (var language in languages)
             {
                 Button btn = new Button
                 {
-                    // 确保这里显示编码
                     Text = $"{language.Name}({language.Code})",
-                    Font = new Font("微软雅黑", 8.5f), // 稍微减小字体以适应更多内容
-                    Size = new Size(150, 28), // 增大宽度
+                    Font = new Font("微软雅黑", 8.5f),
+                    Size = new Size(150, 28),
                     Margin = new Padding(3, 3, 3, 3),
                     BackColor = Color.FromArgb(200, 200, 200),
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
                     Cursor = Cursors.Hand,
-                    Tag = language, // 改为存储整个LanguageInfo对象，方便后续使用
+                    Tag = language,
                     Enabled = false,
                     TextAlign = ContentAlignment.MiddleCenter
                 };
                 btn.FlatAppearance.BorderSize = 0;
                 btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(52, 152, 219);
 
-                // 更新工具提示
                 ToolTip toolTip = new ToolTip();
                 toolTip.SetToolTip(btn, $"复制 {language.Name}({language.Code}) 的翻译结果");
 
@@ -470,7 +491,6 @@ namespace Translator
             var button = sender as Button;
             if (button == null) return;
 
-            // 现在Tag存储的是LanguageInfo对象
             var languageInfo = button.Tag as LanguageInfo;
             if (languageInfo == null) return;
 
@@ -509,7 +529,6 @@ namespace Translator
                 Timer timer = new Timer { Interval = 1500 };
                 timer.Tick += (s, args) =>
                 {
-                    // 使用存储的LanguageInfo对象来重置文本
                     button.Text = $"{languageInfo.Name}({languageInfo.Code})";
                     button.BackColor = Color.FromArgb(52, 152, 219);
                     timer.Stop();

@@ -1,12 +1,10 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 
 public class YoudaoTranslatorHelper
 {
@@ -14,6 +12,8 @@ public class YoudaoTranslatorHelper
     private const string APP_KEY = "00557bf448f5eef1";
     private const string APP_SECRET = "YtduGCxHdSLbbmh2JbxJk90uqSfbIMlV";
     private const string API_URL = "https://openapi.youdao.com/api";
+
+    private static readonly HttpClient _httpClient = new HttpClient();
 
     // 有道语言代码映射
     private static readonly Dictionary<string, string> LanguageMap = new Dictionary<string, string>
@@ -33,18 +33,18 @@ public class YoudaoTranslatorHelper
         {"马来西亚", "ms"}
     };
 
+    static YoudaoTranslatorHelper()
+    {
+        _httpClient.Timeout = TimeSpan.FromSeconds(30);
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+    }
+
     // 生成签名
     private static string GenerateSign(string input, string salt, string curtime)
     {
-        string inputStr = "";
-        if (input.Length > 20)
-        {
-            inputStr = input.Substring(0, 10) + input.Length + input.Substring(input.Length - 10);
-        }
-        else
-        {
-            inputStr = input;
-        }
+        string inputStr = input.Length > 20 ?
+            input.Substring(0, 10) + input.Length + input.Substring(input.Length - 10) :
+            input;
 
         string signStr = APP_KEY + inputStr + salt + curtime + APP_SECRET;
         return ComputeSha256(signStr);
@@ -70,27 +70,23 @@ public class YoudaoTranslatorHelper
     {
         try
         {
-            var jsonObj = JObject.Parse(json);
-
-            // 检查错误码
-            if (jsonObj["errorCode"] != null && jsonObj["errorCode"].ToString() != "0")
+            // 使用简单解析，避免依赖复杂JSON库
+            var errorMatch = Regex.Match(json, "\"errorCode\":\"?([0-9]+)\"?");
+            if (errorMatch.Success && errorMatch.Groups[1].Value != "0")
             {
-                string errorCode = jsonObj["errorCode"].ToString();
+                string errorCode = errorMatch.Groups[1].Value;
                 return $"有道翻译错误({errorCode}): {GetYoudaoErrorDescription(errorCode)}";
             }
 
-            // 获取翻译结果
-            if (jsonObj["translation"] != null)
+            // 提取翻译结果
+            var translationMatch = Regex.Match(json, "\"translation\":\\s*\\[\\s*\"([^\"]+)\"");
+            if (translationMatch.Success)
             {
-                var translationArray = jsonObj["translation"] as JArray;
-                if (translationArray != null && translationArray.Count > 0)
-                {
-                    string translatedText = translationArray[0].ToString();
-                    return DecodeUnicodeEscapes(translatedText);
-                }
+                string translatedText = translationMatch.Groups[1].Value;
+                return DecodeUnicodeEscapes(translatedText);
             }
 
-            return $"翻译结果为空: {json}";
+            return "翻译结果为空";
         }
         catch (Exception ex)
         {
@@ -134,82 +130,88 @@ public class YoudaoTranslatorHelper
             case "401": return "账户已经欠费停";
             case "411": return "访问频率受限，请稍后访问";
             case "412": return "长请求过于频繁，请稍后访问";
-            case "1001": return "无效的OCR类型";
-            case "1002": return "不支持的OCR image类型";
-            case "1003": return "不支持的OCR Language类型";
-            case "1004": return "识别图片过大";
-            case "1201": return "图片base64解密失败";
-            case "1301": return "OCR段落识别失败";
-            case "1411": return "访问频率受限";
-            case "1412": return "超过最大识别字节数";
             default: return $"未知错误({errorCode})";
         }
     }
 
-    // 有道翻译方法
-    public static string Translate(string text, string from, string to)
+
+    // 异步翻译方法
+    // 修改YoudaoTranslatorHelper.cs中的TranslateAsync方法
+    public static async Task<string> TranslateAsync(string text, string from, string to, int maxRetries = 2)
     {
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
 
-        try
+        int retryCount = 0;
+        int baseDelay = 1000; // 基础延迟时间(ms)
+
+        while (retryCount <= maxRetries) // 最多重试maxRetries次
         {
-            // 获取有道语言代码
-            if (!LanguageMap.TryGetValue(from, out string fromCode))
-                throw new ArgumentException($"有道不支持源语言: {from}");
-
-            if (!LanguageMap.TryGetValue(to, out string toCode))
-                throw new ArgumentException($"有道不支持目标语言: {to}");
-
-            // 准备请求参数
-            string salt = DateTime.Now.Ticks.ToString();
-            string curtime = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
-            string sign = GenerateSign(text, salt, curtime);
-
-            // 构建POST数据
-            string postData = $"q={Uri.EscapeDataString(text)}" +
-                            $"&from={fromCode}" +
-                            $"&to={toCode}" +
-                            $"&appKey={APP_KEY}" +
-                            $"&salt={salt}" +
-                            $"&sign={sign}" +
-                            $"&signType=v3" +
-                            $"&curtime={curtime}";
-
-            // 发送请求
-            using (var client = new WebClient())
+            try
             {
-                client.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
-                client.Encoding = Encoding.UTF8;
+                // 获取有道语言代码
+                if (!LanguageMap.TryGetValue(from, out string fromCode))
+                    throw new ArgumentException($"有道不支持源语言: {from}");
 
-                byte[] responseBytes = client.UploadData(API_URL, "POST", Encoding.UTF8.GetBytes(postData));
-                string responseJson = Encoding.UTF8.GetString(responseBytes);
+                if (!LanguageMap.TryGetValue(to, out string toCode))
+                    throw new ArgumentException($"有道不支持目标语言: {to}");
 
-                return ParseYoudaoResult(responseJson);
-            }
-        }
-        catch (WebException ex)
-        {
-            if (ex.Response != null)
+                // 准备请求参数
+                string salt = DateTime.Now.Ticks.ToString();
+                string curtime = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
+                string sign = GenerateSign(text, salt, curtime);
+
+                // 构建POST数据
+                var postData = new Dictionary<string, string>
             {
-                using (var stream = ex.Response.GetResponseStream())
-                using (var reader = new System.IO.StreamReader(stream, Encoding.UTF8))
+                {"q", text},
+                {"from", fromCode},
+                {"to", toCode},
+                {"appKey", APP_KEY},
+                {"salt", salt},
+                {"sign", sign},
+                {"signType", "v3"},
+                {"curtime", curtime}
+            };
+
+                using (var content = new FormUrlEncodedContent(postData))
+                using (var response = await _httpClient.PostAsync(API_URL, content).ConfigureAwait(false))
                 {
-                    string errorResponse = reader.ReadToEnd();
-                    return $"有道API网络错误: {ex.Status} - {errorResponse}";
+                    response.EnsureSuccessStatusCode();
+                    string responseJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return ParseYoudaoResult(responseJson);
                 }
             }
-            return $"有道API网络错误: {ex.Message}";
-        }
-        catch (Exception ex)
-        {
-            return $"有道翻译出错: {ex.Message}";
-        }
-    }
+            catch (HttpRequestException ex)
+            {
+                retryCount++;
+                if (retryCount > maxRetries)
+                {
+                    return $"网络请求失败: {ex.Message}";
+                }
 
-    // 异步翻译方法
-    public static async Task<string> TranslateAsync(string text, string from, string to)
-    {
-        return await Task.Run(() => Translate(text, from, to));
+                // 指数退避策略：1s, 2s, 4s...
+                int delay = baseDelay * (int)Math.Pow(2, retryCount - 1);
+                await Task.Delay(delay).ConfigureAwait(false);
+            }
+            catch (TaskCanceledException)
+            {
+                // 超时重试
+                retryCount++;
+                if (retryCount > maxRetries)
+                {
+                    return "请求超时";
+                }
+
+                int delay = baseDelay * retryCount;
+                await Task.Delay(delay).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                return $"有道翻译出错: {ex.Message}";
+            }
+        }
+
+        return "有道翻译失败，请重试";
     }
 }

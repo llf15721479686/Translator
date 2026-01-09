@@ -43,11 +43,20 @@ namespace Translator
         {
             InitializeComponent();
         }
-
+        // 修改Form1_Load方法，确保初始配置包含汉语
         private void Form1_Load(object sender, EventArgs e)
         {
             InitializeLayout();
             languageConfigManager.LoadConfig();
+
+            // 确保汉语在初始配置中被启用
+            var config = languageConfigManager.GetLanguageConfig();
+            if (!config.ContainsKey("汉语") || !config["汉语"])
+            {
+                config["汉语"] = true;
+                languageConfigManager.UpdateAllConfig(config);
+                languageConfigManager.SaveConfig();
+            }
         }
 
         private void InitializeLayout()
@@ -87,25 +96,30 @@ namespace Translator
             this.Controls.Add(btnConfigureLanguages);
 
             int progressBarTop = buttonTop + buttonHeight + 10;
-            int progressBarWidth = this.ClientSize.Width - 40;
+
+            // 修改：进度条宽度自适应，和表格保持一致
+            int progressBarLeft = 10; // 与表格左对齐
+            int progressBarWidth = this.ClientSize.Width - 20; // 与表格宽度一致
 
             progressBar = new ProgressBar
             {
-                Location = new Point(20, progressBarTop),
+                Location = new Point(progressBarLeft, progressBarTop),
                 Size = new Size(progressBarWidth, 20),
                 Visible = false,
-                Style = ProgressBarStyle.Continuous
+                Style = ProgressBarStyle.Continuous,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top // 添加锚点，使其自适应
             };
             this.Controls.Add(progressBar);
 
             lblProgress = new Label
             {
-                Location = new Point(20, progressBarTop + 25),
+                Location = new Point(progressBarLeft, progressBarTop + 25),
                 Size = new Size(progressBarWidth, 20),
                 Text = "",
                 Font = new Font("微软雅黑", 9F),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Visible = false
+                Visible = false,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top // 添加锚点，使其自适应
             };
             this.Controls.Add(lblProgress);
 
@@ -113,6 +127,7 @@ namespace Translator
             dgvTranslations.Left = 10;
             dgvTranslations.Width = this.ClientSize.Width - 20;
             dgvTranslations.Height = this.ClientSize.Height - dgvTranslations.Top - 10;
+            dgvTranslations.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
             AdjustButtonLayoutIfNeeded();
         }
@@ -127,23 +142,55 @@ namespace Translator
 
             int totalButtonsWidth = buttonWidth * 4 + buttonSpacing * 3 + 20;
 
+            // 确保按钮始终显示在一行
             if (totalButtonsWidth > this.ClientSize.Width - 20)
             {
+                // 缩小按钮宽度以适应窗口
+                buttonWidth = (this.ClientSize.Width - 20 - buttonSpacing * 3) / 4;
+
                 btnTranslate.Location = new Point(buttonLeft, buttonTop);
+                btnTranslate.Size = new Size(buttonWidth, buttonHeight);
                 buttonLeft += buttonWidth + buttonSpacing;
 
                 btnCopyAll.Location = new Point(buttonLeft, buttonTop);
+                btnCopyAll.Size = new Size(buttonWidth, buttonHeight);
                 buttonLeft += buttonWidth + buttonSpacing;
 
                 btnGenerateMessages.Location = new Point(buttonLeft, buttonTop);
+                btnGenerateMessages.Size = new Size(buttonWidth, buttonHeight);
                 buttonLeft += buttonWidth + buttonSpacing;
 
                 btnConfigureLanguages.Location = new Point(buttonLeft, buttonTop);
-
-                progressBar.Top = buttonTop + buttonHeight + 10;
-                lblProgress.Top = progressBar.Top + 25;
-                dgvTranslations.Top = progressBar.Top + 50;
+                btnConfigureLanguages.Size = new Size(buttonWidth, buttonHeight);
             }
+            else
+            {
+                // 保持原始布局
+                btnTranslate.Location = new Point(buttonLeft, buttonTop);
+                btnTranslate.Size = new Size(buttonWidth, buttonHeight);
+                buttonLeft += buttonWidth + buttonSpacing;
+
+                btnCopyAll.Location = new Point(buttonLeft, buttonTop);
+                btnCopyAll.Size = new Size(buttonWidth, buttonHeight);
+                buttonLeft += buttonWidth + buttonSpacing;
+
+                btnGenerateMessages.Location = new Point(buttonLeft, buttonTop);
+                btnGenerateMessages.Size = new Size(buttonWidth, buttonHeight);
+                buttonLeft += buttonWidth + buttonSpacing;
+
+                btnConfigureLanguages.Location = new Point(buttonLeft, buttonTop);
+                btnConfigureLanguages.Size = new Size(buttonWidth, buttonHeight);
+            }
+
+            // 确保按钮固定在合适的位置
+            progressBar.Top = buttonTop + buttonHeight + 10;
+            lblProgress.Top = progressBar.Top + 25;
+            dgvTranslations.Top = progressBar.Top + 50;
+
+            // 确保宽度自适应
+            progressBar.Width = this.ClientSize.Width - 20;
+            lblProgress.Width = this.ClientSize.Width - 20;
+            dgvTranslations.Width = this.ClientSize.Width - 20;
         }
 
         private void ShowProgressBar(string initialText = "准备翻译...", int totalSteps = 100)
@@ -212,6 +259,15 @@ namespace Translator
         {
             using (var configForm = new LanguageConfigForm(languageConfigManager, languages))
             {
+                // 确保汉语在配置窗口中默认被选中
+                var config = languageConfigManager.GetLanguageConfig();
+                if (!config.ContainsKey("汉语"))
+                {
+                    config["汉语"] = true;
+                    languageConfigManager.UpdateAllConfig(config);
+                    languageConfigManager.SaveConfig();
+                }
+
                 if (configForm.ShowDialog() == DialogResult.OK)
                 {
                     languageConfigManager.SaveConfig();
@@ -221,10 +277,14 @@ namespace Translator
             }
         }
 
+
         private List<LanguageInfo> GetEnabledLanguages()
         {
             var enabledLanguages = new List<LanguageInfo>();
             var config = languageConfigManager.GetLanguageConfig();
+
+            // 确保至少有一种语言被选中
+            bool anyEnabled = config.Any(kvp => kvp.Value);
 
             foreach (var language in languages)
             {
@@ -234,9 +294,21 @@ namespace Translator
                 }
             }
 
+            // 如果没有语言被选中，默认启用英语和汉语
             if (enabledLanguages.Count == 0)
             {
+                // 确保汉语被包含
                 enabledLanguages.Add(languages.First(l => l.Name == "英语"));
+                enabledLanguages.Add(languages.First(l => l.Name == "汉语"));
+
+                // 更新配置
+                config["英语"] = true;
+                config["汉语"] = true;
+                languageConfigManager.UpdateAllConfig(config);
+            }
+            // 确保汉语始终被包含（即使配置中未勾选）
+            else if (!enabledLanguages.Any(l => l.Name == "汉语"))
+            {
                 enabledLanguages.Add(languages.First(l => l.Name == "汉语"));
             }
 
@@ -358,6 +430,7 @@ namespace Translator
             var wordsToTranslate = new List<string>();
             var wordIndexMap = new Dictionary<string, List<int>>();
 
+            // 第一步：处理缓存
             for (int row = 0; row < words.Length; row++)
             {
                 string word = words[row];
@@ -371,7 +444,11 @@ namespace Translator
                     });
 
                     progressState.CurrentStep++;
-                    UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: 第{row + 1}/{words.Length}个词汇（缓存）");
+                    // 简化进度条更新，减少UI阻塞
+                    if (row % 10 == 0) // 每10个更新一次进度
+                    {
+                        UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: 第{row + 1}/{words.Length}个词汇");
+                    }
                 }
                 else
                 {
@@ -392,19 +469,20 @@ namespace Translator
                              targetLanguage == "马来西亚" ||
                              hasSlash;
 
+            // 第二步：翻译剩余词汇
             if (useYoudao)
             {
-                await TranslateWithYoudaoWithProgress(wordsToTranslate, wordIndexMap, columnIndex,
+                await TranslateWithYoudaoOptimized(wordsToTranslate, wordIndexMap, columnIndex,
                     targetLanguage, progressState);
             }
             else
             {
-                await TranslateWithBaiduBatchWithProgress(wordsToTranslate, wordIndexMap, columnIndex,
+                await TranslateWithBaiduOptimized(wordsToTranslate, wordIndexMap, columnIndex,
                     targetLanguage, progressState);
             }
         }
 
-        private async Task TranslateWithBaiduBatchWithProgress(
+        private async Task TranslateWithBaiduOptimized(
             List<string> wordsToTranslate,
             Dictionary<string, List<int>> wordIndexMap,
             int columnIndex,
@@ -413,14 +491,14 @@ namespace Translator
         {
             try
             {
-                var batchResults = await Task.Run(() =>
-                    BaiduTranslatorHelper.BatchTranslateWithoutCache(wordsToTranslate, "中文", targetLanguage));
+                // 使用优化的批量翻译
+                var batchResults = await BaiduTranslatorHelper.BatchTranslateWithoutCacheAsync(wordsToTranslate, "中文", targetLanguage);
 
                 var successfulTranslations = new Dictionary<string, string>();
-                int translatedCount = 0;
 
-                foreach (var word in wordsToTranslate)
+                for (int i = 0; i < wordsToTranslate.Count; i++)
                 {
+                    string word = wordsToTranslate[i];
                     if (batchResults.TryGetValue(word, out string result))
                     {
                         if (wordIndexMap.TryGetValue(word, out List<int> rows))
@@ -431,7 +509,6 @@ namespace Translator
                                 {
                                     dgvTranslations.Rows[row].Cells[columnIndex].Value = result;
                                 }
-                                dgvTranslations.Refresh();
                             });
                         }
 
@@ -440,26 +517,31 @@ namespace Translator
                             successfulTranslations[word] = result;
                         }
 
-                        translatedCount++;
-                        progressState.CurrentStep++;
-                        UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: {translatedCount}/{wordsToTranslate.Count}个词汇");
+                        progressState.CurrentStep += rows.Count;
+                        // 批量更新进度，减少UI刷新
+                        if (i % 5 == 0 || i == wordsToTranslate.Count - 1)
+                        {
+                            UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: {i + 1}/{wordsToTranslate.Count}个词汇");
+                        }
                     }
                 }
 
+                // 异步保存缓存，不阻塞主线程
                 if (successfulTranslations.Count > 0)
                 {
-                    await Task.Run(() =>
+                    _ = Task.Run(() =>
                         DatabaseHelper.SaveBatchTranslations(successfulTranslations, "中文", targetLanguage));
                 }
             }
             catch (Exception ex)
             {
-                await TranslateWithBaiduSingleWithProgress(wordsToTranslate, wordIndexMap, columnIndex,
+                // 批量失败，回退到单个翻译
+                await TranslateWithBaiduSingleOptimized(wordsToTranslate, wordIndexMap, columnIndex,
                     targetLanguage, progressState);
             }
         }
-
-        private async Task TranslateWithBaiduSingleWithProgress(
+        // 修改Form1.cs中的TranslateWithYoudaoOptimized方法
+        private async Task TranslateWithYoudaoOptimized(
             List<string> wordsToTranslate,
             Dictionary<string, List<int>> wordIndexMap,
             int columnIndex,
@@ -467,110 +549,111 @@ namespace Translator
             ProgressState progressState)
         {
             var successfulTranslations = new Dictionary<string, string>();
+            // 根据API限制调整并发数，有道建议不超过1-2
+            var semaphore = new SemaphoreSlim(1);
+            var tasks = new List<Task>();
+            int totalWords = wordsToTranslate.Count;
 
-            int groupSize = 5;
-            for (int i = 0; i < wordsToTranslate.Count; i += groupSize)
+            // 按批次处理，每批处理后增加延迟
+            int batchSize = 5;
+            for (int i = 0; i < totalWords; i += batchSize)
             {
-                var group = wordsToTranslate.Skip(i).Take(groupSize).ToList();
+                var batch = wordsToTranslate.Skip(i).Take(batchSize).ToList();
 
-                var tasks = new List<Task>();
-                var groupResults = new ConcurrentDictionary<string, string>();
-
-                for (int j = 0; j < group.Count; j += 2)
+                foreach (var word in batch)
                 {
-                    int start = j;
-                    int end = Math.Min(j + 2, group.Count);
-
-                    var task = Task.Run(async () =>
+                    await semaphore.WaitAsync();
+                    tasks.Add(Task.Run(async () =>
                     {
-                        for (int k = start; k < end; k++)
+                        try
                         {
-                            string word = group[k];
-                            try
+                            // 对于长文本，增加超时时间
+                            int timeout = word.Length > 50 ? 15000 : 8000;
+                            // 对于失败过的词，增加重试次数
+                            int retryCount = 3;
+
+                            string result = await YoudaoTranslatorHelper.TranslateAsync(
+                                word, "中文", targetLanguage, retryCount).ConfigureAwait(false);
+
+                            if (wordIndexMap.TryGetValue(word, out List<int> rows))
                             {
-                                string result = BaiduTranslatorHelper.TranslateWithoutCache(word, "中文", targetLanguage);
-                                groupResults[word] = result;
-
-                                if (wordIndexMap.TryGetValue(word, out List<int> rows))
+                                this.Invoke((MethodInvoker)delegate
                                 {
-                                    this.Invoke((MethodInvoker)delegate
+                                    foreach (int row in rows)
                                     {
-                                        foreach (int row in rows)
-                                        {
-                                            dgvTranslations.Rows[row].Cells[columnIndex].Value = result;
-                                        }
-                                        dgvTranslations.Refresh();
-                                    });
-                                }
-
-                                if (!result.Contains("翻译失败") && !result.Contains("翻译API错误"))
-                                {
-                                    lock (successfulTranslations)
-                                    {
-                                        successfulTranslations[word] = result;
+                                        dgvTranslations.Rows[row].Cells[columnIndex].Value = result;
                                     }
-                                }
-
-                                lock (progressState)
-                                {
-                                    progressState.CurrentStep++;
-                                    UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: {i + k + 1}/{wordsToTranslate.Count}个词汇");
-                                }
+                                });
                             }
-                            catch (Exception ex)
+
+                            // 检查是否有效的翻译结果
+                            if (!string.IsNullOrEmpty(result) &&
+                                !result.Contains("翻译失败") &&
+                                !result.Contains("有道翻译错误") &&
+                                !result.Contains("有道API"))
                             {
-                                string errorMessage = $"{targetLanguage}翻译失败: {ex.Message}";
-                                groupResults[word] = errorMessage;
-
-                                if (wordIndexMap.TryGetValue(word, out List<int> rows))
+                                lock (successfulTranslations)
                                 {
-                                    this.Invoke((MethodInvoker)delegate
-                                    {
-                                        foreach (int row in rows)
-                                        {
-                                            dgvTranslations.Rows[row].Cells[columnIndex].Value = errorMessage;
-                                        }
-                                        dgvTranslations.Refresh();
-                                    });
-                                }
-
-                                lock (progressState)
-                                {
-                                    progressState.CurrentStep++;
-                                    UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: {i + k + 1}/{wordsToTranslate.Count}个词汇（失败）");
+                                    successfulTranslations[word] = result;
                                 }
                             }
+
+                            lock (progressState)
+                            {
+                                progressState.CurrentStep += rows?.Count ?? 0;
+                            }
+
+                            // 更新进度
+                            int currentProgress = (int)(((double)progressState.CurrentStep / progressState.TotalSteps) * 100);
+                            UpdateProgress(progressState.CurrentStep,
+                                $"{targetLanguage}: {progressState.CurrentStep}/{progressState.TotalSteps} ({currentProgress}%)");
                         }
-                    });
-
-                    tasks.Add(task);
-
-                    if (tasks.Count >= 2)
-                    {
-                        await Task.WhenAll(tasks);
-                        tasks.Clear();
-
-                        if (i + groupSize < wordsToTranslate.Count)
+                        catch (Exception ex)
                         {
-                            await Task.Delay(1200);
+                            string errorMessage = $"翻译失败: {ex.Message}";
+
+                            if (wordIndexMap.TryGetValue(word, out List<int> rows))
+                            {
+                                this.Invoke((MethodInvoker)delegate
+                                {
+                                    foreach (int row in rows)
+                                    {
+                                        dgvTranslations.Rows[row].Cells[columnIndex].Value = errorMessage;
+                                    }
+                                });
+                            }
+
+                            lock (progressState)
+                            {
+                                progressState.CurrentStep += rows?.Count ?? 0;
+                            }
                         }
-                    }
+                        finally
+                        {
+                            semaphore.Release();
+                        }
+                    }));
                 }
 
-                if (tasks.Count > 0)
+                // 等待当前批次完成
+                await Task.WhenAll(tasks);
+                tasks.Clear();
+
+                // 批次之间增加延迟，避免触发频率限制
+                if (i + batchSize < totalWords)
                 {
-                    await Task.WhenAll(tasks);
+                    await Task.Delay(2000); // 每批处理后等待2秒
                 }
             }
 
+            // 异步保存缓存
             if (successfulTranslations.Count > 0)
             {
-                await Task.Run(() =>
+                _ = Task.Run(() =>
                     DatabaseHelper.SaveBatchTranslations(successfulTranslations, "中文", targetLanguage));
             }
         }
-
-        private async Task TranslateWithYoudaoWithProgress(
+        private async Task TranslateWithBaiduSingleOptimized(
             List<string> wordsToTranslate,
             Dictionary<string, List<int>> wordIndexMap,
             int columnIndex,
@@ -578,21 +661,20 @@ namespace Translator
             ProgressState progressState)
         {
             var successfulTranslations = new Dictionary<string, string>();
+            var semaphore = new SemaphoreSlim(3); // 限制并发数
 
-            int maxConcurrent = 3;
-            var semaphore = new SemaphoreSlim(maxConcurrent);
             var tasks = new List<Task>();
 
             for (int i = 0; i < wordsToTranslate.Count; i++)
             {
-                var word = wordsToTranslate[i];
+                string word = wordsToTranslate[i];
                 await semaphore.WaitAsync();
 
-                var task = Task.Run(async () =>
+                tasks.Add(Task.Run(async () =>
                 {
                     try
                     {
-                        string result = await YoudaoTranslatorHelper.TranslateAsync(word, "中文", targetLanguage);
+                        string result = await BaiduTranslatorHelper.TranslateWithoutCacheAsync(word, "中文", targetLanguage);
 
                         if (wordIndexMap.TryGetValue(word, out List<int> rows))
                         {
@@ -602,13 +684,10 @@ namespace Translator
                                 {
                                     dgvTranslations.Rows[row].Cells[columnIndex].Value = result;
                                 }
-                                dgvTranslations.Refresh();
                             });
                         }
 
-                        if (!result.Contains("翻译失败") &&
-                            !result.Contains("有道翻译错误") &&
-                            !result.Contains("有道API"))
+                        if (!result.Contains("翻译失败") && !result.Contains("翻译API错误"))
                         {
                             lock (successfulTranslations)
                             {
@@ -618,14 +697,21 @@ namespace Translator
 
                         lock (progressState)
                         {
-                            progressState.CurrentStep++;
-                            int currentIndex = Array.IndexOf(wordsToTranslate.ToArray(), word) + 1;
-                            UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: {currentIndex}/{wordsToTranslate.Count}个词汇");
+                            progressState.CurrentStep += rows.Count;
+                        }
+
+                        // 减少UI刷新频率
+                        lock (progressState)
+                        {
+                            if (progressState.CurrentStep % 10 == 0)
+                            {
+                                UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: 翻译中...");
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
-                        string errorMessage = $"{targetLanguage}翻译失败: {ex.Message}";
+                        string errorMessage = $"{targetLanguage}翻译失败";
 
                         if (wordIndexMap.TryGetValue(word, out List<int> rows))
                         {
@@ -635,34 +721,42 @@ namespace Translator
                                 {
                                     dgvTranslations.Rows[row].Cells[columnIndex].Value = errorMessage;
                                 }
-                                dgvTranslations.Refresh();
                             });
                         }
 
                         lock (progressState)
                         {
-                            progressState.CurrentStep++;
-                            UpdateProgress(progressState.CurrentStep, $"{targetLanguage}: 翻译失败");
+                            progressState.CurrentStep += rows.Count;
                         }
                     }
                     finally
                     {
                         semaphore.Release();
                     }
-                });
+                }));
 
-                tasks.Add(task);
-                await Task.Delay(1000);
+                // 控制任务创建速度
+                if (tasks.Count >= 3)
+                {
+                    await Task.WhenAll(tasks);
+                    tasks.Clear();
+                    await Task.Delay(500); // 小延迟避免频率过高
+                }
             }
 
-            await Task.WhenAll(tasks);
+            if (tasks.Count > 0)
+            {
+                await Task.WhenAll(tasks);
+            }
 
+            // 异步保存缓存
             if (successfulTranslations.Count > 0)
             {
-                await Task.Run(() =>
+                _ = Task.Run(() =>
                     DatabaseHelper.SaveBatchTranslations(successfulTranslations, "中文", targetLanguage));
             }
         }
+     
 
         private void InitializeDataGridView(List<LanguageInfo> enabledLanguages)
         {

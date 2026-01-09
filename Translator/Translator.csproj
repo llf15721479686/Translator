@@ -142,6 +142,9 @@
       <DependentUpon>LanguageConfigForm.cs</DependentUpon>
     </Compile>
     <Compile Include="LayoutHelper.cs" />
+    <Compile Include="MessageTranslatorControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="MessageTranslatorForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -159,6 +162,12 @@
     <Compile Include="SqliteHelper.cs" />
     <Compile Include="StyleManager.cs" />
     <Compile Include="YoudaoTranslatorHelper.cs" />
+    <EmbeddedResource Include="MessageTranslatorControl.resx">
+      <DependentUpon>MessageTranslatorControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MessageTranslatorForm.resx">
+      <DependentUpon>MessageTranslatorForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
