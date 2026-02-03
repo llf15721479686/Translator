@@ -1,28 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Translator
 {
-    // Form1.cs - 添加新的翻译窗体
-
     public partial class MessageTranslatorForm : Form
     {
         private List<LanguageInfo> languages;
         private string[] sourceTexts;
         private List<TextBox> prefixTextBoxes;
         private Dictionary<string, Dictionary<int, string>> translations;
-        private FlowLayoutPanel mainPanel;
-        private Button btnTranslate;
-        private FlowLayoutPanel languageButtonsPanel;
         private Dictionary<string, Button> languageCopyButtons;
-        private Panel scrollPanel;
+        private TextBox previewTextBox; // 新增：预览文本框引用
+
+        // 布局控件（固定位置+尺寸，避免遮挡，兼容4.7.2）
+        private Panel mainPanel;
+        private Panel leftContentPanel;
+        private Panel rightPreviewPanel;
+        private Panel bottomButtonPanel;
+        private FlowLayoutPanel languageButtonFlow;
 
         public MessageTranslatorForm(string[] texts)
         {
@@ -33,14 +32,15 @@ namespace Translator
             this.languageCopyButtons = new Dictionary<string, Button>();
 
             InitializeComponent();
-            InitializeUI();
+            InitializeFixedLayoutUI();
+            // 窗口大小变化时自动重绘布局（4.7.2 支持该事件）
+            this.Resize += new EventHandler(AdjustLayoutOnResize);
         }
 
         private List<LanguageInfo> GetSupportedLanguages()
         {
             return new List<LanguageInfo>
             {
-                
                 new LanguageInfo { Name = "阿拉伯语", Code = "1025" },
                 new LanguageInfo { Name = "德语", Code = "1031" },
                 new LanguageInfo { Name = "英语", Code = "1033" },
@@ -60,293 +60,349 @@ namespace Translator
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            // 
-            // MessageTranslatorForm
-            // 
-            this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(1082, 703);
-            this.Font = new System.Drawing.Font("微软雅黑", 10F);
-            this.MinimumSize = new System.Drawing.Size(900, 600);
+            this.BackColor = Color.FromArgb(248, 249, 250);
+            this.ClientSize = new Size(1200, 768);
+            this.Font = new Font("微软雅黑", 9.5F);
+            this.MinimumSize = new Size(1000, 680);
             this.Name = "MessageTranslatorForm";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "消息翻译器";
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.Text = "消息翻译器 - 多语言批量翻译工具";
             this.ResumeLayout(false);
-
         }
 
-        private void InitializeUI()
+        // 兼容4.7.2的固定布局，彻底解决遮挡
+        private void InitializeFixedLayoutUI()
         {
-            // 主容器
-            Panel mainContainer = new Panel
+            // 主容器（承载所有面板）
+            mainPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(15)
+                BackColor = Color.Transparent
             };
+            this.Controls.Add(mainPanel);
 
-            // 顶部按钮面板 - 调整为更紧凑
-            Panel topPanel = new Panel
+            // ========== 左侧：原文配置区（固定宽度，兼容4.7.2） ==========
+            leftContentPanel = new Panel
             {
-                Dock = DockStyle.Top,
-                Height = 50,
-                Padding = new Padding(0, 5, 0, 10)
+                Location = new Point(20, 20),
+                Size = new Size(650, 550),  // 修改：从580减少到550（为底部留更多空间）
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
             };
+            mainPanel.Controls.Add(leftContentPanel);
 
-            FlowLayoutPanel topFlow = new FlowLayoutPanel
+            // 左侧标题
+            Label leftTitle = new Label
             {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                AutoSize = true
+                Text = "📝 原文与标识配置",
+                Font = new Font("微软雅黑", 14, FontStyle.Bold),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Location = new Point(20, 15),
+                Size = new Size(300, 30),
+                TextAlign = ContentAlignment.MiddleLeft
             };
+            leftContentPanel.Controls.Add(leftTitle);
 
             // 翻译按钮
-            btnTranslate = new Button
+            Button btnTranslate = new Button
             {
                 Text = "🚀 开始翻译所有语言",
                 Font = new Font("微软雅黑", 11, FontStyle.Bold),
-                Size = new Size(180, 30),
-                BackColor = Color.FromArgb(39, 174, 96),
+                Location = new Point(20, 55),
+                Size = new Size(200, 40),
+                BackColor = Color.FromArgb(25, 135, 84),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
-                Margin = new Padding(0, 0, 15, 0)
+                Cursor = Cursors.Hand
             };
             btnTranslate.FlatAppearance.BorderSize = 0;
-            btnTranslate.FlatAppearance.MouseOverBackColor = Color.FromArgb(46, 204, 113);
-            btnTranslate.Click += BtnTranslate_Click;
+            btnTranslate.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 150, 93);
+            btnTranslate.Click += new EventHandler(BtnTranslate_Click);
+            leftContentPanel.Controls.Add(btnTranslate);
 
-         
-            topFlow.Controls.AddRange(new Control[] { btnTranslate });
-            topPanel.Controls.Add(topFlow);
-            mainContainer.Controls.Add(topPanel);
-
-            // 内容区域 - 使用滚动面板
-            scrollPanel = new Panel
+            // 原文表格（带滚动条，独立区域）
+            Panel tableScrollPanel = new Panel
             {
-                Dock = DockStyle.Fill,
-                Padding = new Padding(0, 5, 0, 10),
+                Location = new Point(20, 105),
+                Size = new Size(610, 420),  // 修改：从450减少到420（因为整体高度减少了）
                 AutoScroll = true,
-                BackColor = Color.FromArgb(245, 245, 245)
-            };
+                BackColor = Color.FromArgb(248, 249, 250),
 
-            mainPanel = new FlowLayoutPanel
+            };
+            leftContentPanel.Controls.Add(tableScrollPanel);
+
+            // 用TableLayoutPanel确保行列不重叠（4.7.2 完全支持）
+            TableLayoutPanel messageTable = new TableLayoutPanel
             {
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2,
+                RowCount = sourceTexts.Length + 1,
+                Size = new Size(580, 45 + (sourceTexts.Length * 40)),  // 修改：表头45 + 内容行×40
                 BackColor = Color.White,
-                Padding = new Padding(10),
-                MinimumSize = new Size(600, 0)
+                CellBorderStyle = TableLayoutPanelCellBorderStyle.Single
             };
+            messageTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
+            messageTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+            tableScrollPanel.Controls.Add(messageTable);
 
-            // 创建原文和前缀输入框的行
-            CreateMessageRows();
-
-            scrollPanel.Controls.Add(mainPanel);
-            mainContainer.Controls.Add(scrollPanel);
-
-            // 语言复制按钮区域 - 修改这部分
-            Panel languagePanel = new Panel
+            // 表头
+            messageTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
+            // 4.7.2 不支持内联初始化控件后直接添加，拆分步骤保证兼容
+            Label originalHeader = new Label
             {
-                Dock = DockStyle.Bottom,
-                Height = 120, // 增加高度到120px，给两行按钮足够的空间
-                Padding = new Padding(10, 5, 10, 5),
-                Visible = false,
-                BackColor = Color.FromArgb(250, 250, 250),
-                BorderStyle = BorderStyle.FixedSingle,
-                AutoScroll = false // 父容器不滚动
+                Text = "原文内容",
+                Font = new Font("微软雅黑", 11, FontStyle.Bold),
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(33, 37, 41),
+                Dock = DockStyle.Fill,  // 改回Fill，让TableLayoutPanel管理布局
+                TextAlign = ContentAlignment.MiddleCenter,
+                AutoEllipsis = true,
+                Margin = new Padding(0)  // 确保没有外边距
             };
+            messageTable.Controls.Add(originalHeader, 0, 0);
 
-            languageButtonsPanel = new FlowLayoutPanel
+            Label prefixHeader = new Label
             {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true, // 启用换行
-                AutoScroll = false, // 禁用滚动条
-                Padding = new Padding(5, 5, 0, 5), // 增加上下内边距
-                AutoSize = true, // 允许自动调整大小
-                AutoSizeMode = AutoSizeMode.GrowAndShrink // 根据内容调整
+                Text = "消息标识前缀",
+                Font = new Font("微软雅黑", 11, FontStyle.Bold),
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(33, 37, 41),
+                Dock = DockStyle.Fill,  // 改回Fill，让TableLayoutPanel管理布局
+                TextAlign = ContentAlignment.MiddleCenter,
+                AutoEllipsis = true,
+                Margin = new Padding(0)  // 确保没有外边距
             };
+            messageTable.Controls.Add(prefixHeader, 1, 0);
 
-            //languagePanel.Controls.Add(languageLabel);
-            languagePanel.Controls.Add(languageButtonsPanel);
-            mainContainer.Controls.Add(languagePanel);
-
-            this.Controls.Add(mainContainer);
-        }
-
-        private void CreateMessageRows()
-        {
-            mainPanel.Controls.Clear();
-            prefixTextBoxes.Clear();
-
-            // 表头 - 调整高度和样式
-            Panel headerRow = CreateRow("原文", "消息标识前缀", true);
-            headerRow.Height = 40;
-            headerRow.BackColor = Color.FromArgb(52, 73, 94);
-            foreach (Control ctrl in headerRow.Controls)
-            {
-                if (ctrl is Panel panel)
-                {
-                    foreach (Control innerCtrl in panel.Controls)
-                    {
-                        if (innerCtrl is Label label)
-                        {
-                            label.ForeColor = Color.White;
-                        }
-                    }
-                }
-            }
-            mainPanel.Controls.Add(headerRow);
-
-            // 为每条消息创建一行
+            // 内容行（每个控件独立占行，兼容4.7.2）
             for (int i = 0; i < sourceTexts.Length; i++)
             {
-                Panel messageRow = CreateMessageRow(i, sourceTexts[i]);
-                mainPanel.Controls.Add(messageRow);
-            }
+                messageTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));  // 修改：从60F减少到40F
 
-            // 调整mainPanel的宽度以匹配容器
-            if (scrollPanel != null)
-            {
-                mainPanel.Width = Math.Max(scrollPanel.ClientSize.Width - 30, mainPanel.MinimumSize.Width);
-            }
-        }
-
-        private Panel CreateRow(string leftText, string rightText, bool isHeader = false)
-        {
-            int rowWidth = mainPanel.Width - mainPanel.Padding.Horizontal - 20;
-            int leftWidth = (int)(rowWidth * 0.65);
-            int rightWidth = rowWidth - leftWidth;
-
-            Panel row = new Panel
-            {
-                Width = rowWidth,
-                Height = isHeader ? 40 : 55,
-                BorderStyle = isHeader ? BorderStyle.None : BorderStyle.FixedSingle,
-                Margin = new Padding(0, 0, 0, 8),
-                BackColor = isHeader ? Color.Transparent : Color.FromArgb(255, 255, 255)
-            };
-
-            // 左侧：原文
-            Panel leftPanel = new Panel
-            {
-                Dock = DockStyle.Left,
-                Width = leftWidth,
-                Padding = new Padding(15, 12, 10, 12)
-            };
-
-            Label leftLabel = new Label
-            {
-                Text = leftText,
-                Font = new Font("微软雅黑", isHeader ? 10 : 9.5f, isHeader ? FontStyle.Bold : FontStyle.Regular),
-                Dock = DockStyle.Fill,
-                TextAlign = isHeader ? ContentAlignment.MiddleLeft : ContentAlignment.TopLeft,
-                ForeColor = isHeader ? Color.White : Color.FromArgb(60, 60, 60),
-                AutoEllipsis = true
-            };
-
-            leftPanel.Controls.Add(leftLabel);
-
-            // 右侧：输入框
-            Panel rightPanel = new Panel
-            {
-                Dock = DockStyle.Right,
-                Width = rightWidth,
-                Padding = new Padding(10, 8, 15, 8)
-            };
-
-            if (isHeader)
-            {
-                Label rightLabel = new Label
+                Label textLabel = new Label
                 {
-                    Text = rightText,
-                    Font = new Font("微软雅黑", 10, FontStyle.Bold),
+                    Text = string.Format("{0}. {1}", i + 1, sourceTexts[i]), // 4.7.2 推荐用 string.Format 替代 $ 插值（虽然后者也支持，更稳妥）
+                    Font = new Font("微软雅黑", 10),
+                    ForeColor = Color.FromArgb(33, 37, 41),
                     Dock = DockStyle.Fill,
-                    TextAlign = ContentAlignment.MiddleLeft,
-                    ForeColor = Color.White
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    AutoEllipsis = true,
+                    Padding = new Padding(10, 0, 10, 0)
                 };
-                rightPanel.Controls.Add(rightLabel);
-            }
-            else
-            {
-                TextBox txtPrefix = new TextBox
+                messageTable.Controls.Add(textLabel, 0, i + 1);
+
+                TextBox prefixBox = new TextBox
                 {
                     Font = new Font("微软雅黑", 10),
                     Dock = DockStyle.Fill,
-                    BackColor = Color.FromArgb(250, 250, 250),
+                    BackColor = Color.FromArgb(248, 249, 250),
                     BorderStyle = BorderStyle.FixedSingle,
-                    Padding = new Padding(5)
+                    TextAlign = HorizontalAlignment.Center,
+                    Padding = new Padding(5)  // 修改：从8减少到5，适应更小的高度
                 };
-                rightPanel.Controls.Add(txtPrefix);
-                prefixTextBoxes.Add(txtPrefix);
+                // 4.7.2 支持匿名方法，保留焦点切换样式
+                prefixBox.Enter += (s, e) => { prefixBox.BackColor = Color.FromArgb(230, 245, 255); };
+                prefixBox.Leave += (s, e) => { prefixBox.BackColor = Color.FromArgb(248, 249, 250); };
+                messageTable.Controls.Add(prefixBox, 1, i + 1);
+                prefixTextBoxes.Add(prefixBox);
             }
 
-            row.Controls.Add(leftPanel);
-            row.Controls.Add(rightPanel);
+            // ========== 右侧：预览区（固定位置，兼容4.7.2） ==========
+            rightPreviewPanel = new Panel
+            {
+                Location = new Point(690, 20),
+                Size = new Size(470, 550),  // 修改：从580减少到550（与左侧保持一致）
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            mainPanel.Controls.Add(rightPreviewPanel);
 
-            return row;
+            Label rightTitle = new Label
+            {
+                Text = "🔍 翻译结果预览",
+                Font = new Font("微软雅黑", 14, FontStyle.Bold),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Location = new Point(20, 15),
+                Size = new Size(300, 30),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            rightPreviewPanel.Controls.Add(rightTitle);
+
+            // 多行文本框显示翻译结果（替换原来的提示标签）
+            previewTextBox = new TextBox
+            {
+                Location = new Point(20, 60),
+                Size = new Size(430, 470),  // 修改：从500减少到470（因为整体高度减少了）
+                Multiline = true,
+                ScrollBars = ScrollBars.Both,
+                Font = new Font("微软雅黑", 9.5F),
+                BackColor = Color.FromArgb(248, 249, 250),
+                BorderStyle = BorderStyle.FixedSingle,
+                ReadOnly = true,
+                WordWrap = true,
+                Text = "翻译完成后，此处将显示选中语言的翻译结果\r\n\r\n格式说明：\r\n\"消息标识\": \"翻译文本\","
+            };
+            rightPreviewPanel.Controls.Add(previewTextBox);
+
+            // ========== 底部：语言按钮区（固定高度，兼容4.7.2） ==========
+            bottomButtonPanel = new Panel
+            {
+                Location = new Point(20, 580),  // 修改：从620改为600（向上移动20像素）
+                Size = new Size(1140, 250),
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            mainPanel.Controls.Add(bottomButtonPanel);
+
+            Label bottomTitle = new Label
+            {
+                Text = "🌐 语言复制按钮",
+                Font = new Font("微软雅黑", 12, FontStyle.Bold),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Location = new Point(20, 10),
+                Size = new Size(300, 30),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            bottomButtonPanel.Controls.Add(bottomTitle);
+
+            // 语言按钮流布局（独立滚动）
+            languageButtonFlow = new FlowLayoutPanel
+            {
+                Location = new Point(20, 45),
+                Size = new Size(1100, 230), // 修改：高度从60增加到90
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoScroll = true,
+                BackColor = Color.FromArgb(248, 249, 250)
+            };
+            bottomButtonPanel.Controls.Add(languageButtonFlow);
+
+            CreateLanguageCopyButtons();
         }
 
-        private Panel CreateMessageRow(int index, string message)
+        // 窗口缩放时自动调整面板位置（4.7.2 要求显式声明 EventHandler）
+        private void AdjustLayoutOnResize(object sender, EventArgs e)
         {
-            return CreateRow($"{index + 1}. {message}", "", false);
+            // 左侧面板保持左对齐，预留边框空间
+            leftContentPanel.Size = new Size(650, this.ClientSize.Height - 210); // 增加更多空间
+            leftContentPanel.Location = new Point(20, 20);
+
+            // 右侧面板跟在左侧面板右边，预留20像素间距
+            rightPreviewPanel.Location = new Point(leftContentPanel.Right + 20, 20);
+            rightPreviewPanel.Size = new Size(this.ClientSize.Width - rightPreviewPanel.Left - 20, leftContentPanel.Height);
+
+            // 底部面板占满宽度，预留边框空间
+            bottomButtonPanel.Size = new Size(this.ClientSize.Width - 40, 160); // 高度稍增加
+            bottomButtonPanel.Location = new Point(20, leftContentPanel.Bottom + 40); // 增加更多间距
+
+            // 调整预览文本框大小，确保在边框内
+            if (previewTextBox != null)
+            {
+                // 减去边框和标题区域的空间
+                previewTextBox.Size = new Size(rightPreviewPanel.Width - 45, rightPreviewPanel.Height - 85);
+            }
+
+            // 按钮流布局宽度自适应，确保在边框内
+            languageButtonFlow.Size = new Size(bottomButtonPanel.Width - 45, 100);
         }
 
+        private void CreateLanguageCopyButtons()
+        {
+            languageButtonFlow.Controls.Clear();
+            languageCopyButtons.Clear();
+
+            foreach (var language in languages)
+            {
+                Button btn = new Button
+                {
+                    Text = string.Format("{0} ({1})", language.Name, language.Code),
+                    Font = new Font("微软雅黑", 9),
+                    Size = new Size(160, 30),
+                    Margin = new Padding(8),
+                    BackColor = Color.FromArgb(108, 117, 125),
+                    ForeColor = Color.White,
+                    FlatStyle = FlatStyle.Flat,
+                    Cursor = Cursors.Hand,
+                    Tag = language,
+                    Enabled = false
+                };
+                btn.FlatAppearance.BorderSize = 0;
+                btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(70, 130, 180);
+                btn.Click += new EventHandler(BtnCopyLanguage_Click);
+
+                // 4.7.2 支持 ToolTip，正常使用
+                ToolTip toolTip = new ToolTip();
+                toolTip.SetToolTip(btn, string.Format("复制{0}的翻译结果", language.Name));
+                languageButtonFlow.Controls.Add(btn);
+                languageCopyButtons[language.Name] = btn;
+            }
+        }
+
+        // 异步翻译按钮点击事件（4.7.2 完全支持 async/await）
         private async void BtnTranslate_Click(object sender, EventArgs e)
         {
-            // 验证所有前缀是否已输入
             for (int i = 0; i < prefixTextBoxes.Count; i++)
             {
                 if (string.IsNullOrWhiteSpace(prefixTextBoxes[i].Text))
                 {
-                    MessageBox.Show($"请为第 {i + 1} 条消息输入消息标识前缀", "提示",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(string.Format("请为第 {0} 条消息输入消息标识前缀", i + 1), "输入验证", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     prefixTextBoxes[i].Focus();
                     return;
                 }
             }
 
-            btnTranslate.Enabled = false;
-            btnTranslate.Text = "翻译中...";
+            Button btn = sender as Button;
+            if (btn == null) return;
+
+            btn.Enabled = false;
+            btn.Text = "🔄 翻译中...";
 
             try
             {
-                // 清空之前的翻译结果
                 translations.Clear();
-
-                // 创建语言复制按钮
-                CreateLanguageCopyButtons();
-                if (languageButtonsPanel.Parent != null)
+                // 清空预览文本框
+                if (previewTextBox != null)
                 {
-                    languageButtonsPanel.Parent.Visible = true;
+                    previewTextBox.Text = "翻译进行中，请稍候...";
                 }
 
-                // 并行翻译所有语言
-                var translationTasks = new List<Task>();
+                foreach (var langBtn in languageCopyButtons.Values)
+                {
+                    langBtn.Enabled = false;
+                    langBtn.BackColor = Color.FromArgb(108, 117, 125);
+                    LanguageInfo langInfo = langBtn.Tag as LanguageInfo;
+                    if (langInfo != null)
+                    {
+                        langBtn.Text = string.Format("{0} ({1})", langInfo.Name, langInfo.Code);
+                    }
+                }
 
+                List<Task> translationTasks = new List<Task>();
                 foreach (var language in languages)
                 {
-                    var task = TranslateLanguage(language);
-                    translationTasks.Add(task);
-                    await Task.Delay(200); // 控制并发频率
+                    translationTasks.Add(TranslateLanguage(language));
+                    await Task.Delay(200);
                 }
 
                 await Task.WhenAll(translationTasks);
+                MessageBox.Show("✅ 所有语言翻译完成！", "翻译完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                MessageBox.Show("所有语言翻译完成！", "完成",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // 翻译完成后更新预览文本框提示
+                if (previewTextBox != null)
+                {
+                    previewTextBox.Text = "翻译完成！请点击下方语言按钮查看翻译结果。";
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"翻译失败: {ex.Message}", "错误",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(string.Format("❌ 翻译失败: {0}", ex.Message), "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (previewTextBox != null)
+                {
+                    previewTextBox.Text = string.Format("翻译失败: {0}", ex.Message);
+                }
             }
             finally
             {
-                btnTranslate.Enabled = true;
-                btnTranslate.Text = "🚀 开始翻译所有语言";
+                btn.Enabled = true;
+                btn.Text = "🚀 开始翻译所有语言";
             }
         }
 
@@ -354,183 +410,134 @@ namespace Translator
         {
             try
             {
-                var langTranslations = new Dictionary<int, string>();
-
+                Dictionary<int, string> langTranslations = new Dictionary<int, string>();
                 for (int i = 0; i < sourceTexts.Length; i++)
                 {
                     string text = sourceTexts[i];
-                    string result;
+                    string result = string.Empty;
 
-                    // 特殊处理：如果是汉语，直接使用原文，不翻译
                     if (language.Name == "汉语")
                     {
-                        result = text; // 直接使用原文
-                        langTranslations[i] = result;
-                        continue; // 跳过后续的翻译流程
-                    }
-
-                    // 检查缓存
-                    string cached = DatabaseHelper.GetCachedTranslation(text, "中文", language.Name);
-
-                    if (!string.IsNullOrEmpty(cached))
-                    {
-                        result = cached;
+                        result = text;
                     }
                     else
                     {
-                        // 翻译
+                        // 4.7.2 异步逻辑拆分，避免嵌套推断问题
                         if (language.Name == "印度尼西亚语" || language.Name == "马来西亚" || text.Contains("/"))
                         {
                             result = await YoudaoTranslatorHelper.TranslateAsync(text, "中文", language.Name);
                         }
                         else
                         {
+                            // 同步方法包装为 Task，兼容 async/await
                             result = await Task.Run(() => BaiduTranslatorHelper.TranslateWithoutCache(text, "中文", language.Name));
-                        }
-
-                        // 保存到缓存 - 修改参数顺序
-                        if (!result.Contains("翻译失败") && !result.Contains("API错误"))
-                        {
-                            // 修改这里：参数顺序改为 text, "中文", language.Name, result
-                            DatabaseHelper.SaveTranslation(text, "中文", language.Name, result);
                         }
                     }
 
-                    langTranslations[i] = result;
+                    // 缓存判断（兼容4.7.2）
+                    if (!result.Contains("翻译失败") && !result.Contains("API错误") && language.Name != "汉语")
+                    {
+                        DatabaseHelper.SaveTranslation(text, "中文", language.Name, result);
+                    }
 
-                    // 控制频率
+                    langTranslations.Add(i, result);
                     await Task.Delay(1000);
                 }
 
+                // 线程安全更新字典（4.7.2 支持 lock）
                 lock (translations)
                 {
                     translations[language.Name] = langTranslations;
                 }
 
-                // 启用该语言的复制按钮 - 这里也需要更新按钮文本显示编码
-                this.Invoke((MethodInvoker)delegate
+                // 跨线程更新UI（4.7.2 推荐 Invoke + MethodInvoker）
+                this.Invoke(new MethodInvoker(delegate
                 {
-                    if (languageCopyButtons.TryGetValue(language.Name, out Button btn))
+                    if (languageCopyButtons.TryGetValue(language.Name, out Button langBtn))
                     {
-                        btn.Enabled = true;
-                        btn.BackColor = Color.FromArgb(52, 152, 219);
-                        // 确保按钮文本显示编码
-                        btn.Text = $"{language.Name}({language.Code})";
+                        langBtn.Enabled = true;
+                        langBtn.BackColor = Color.FromArgb(25, 135, 84);
                     }
-                });
+                }));
             }
-            catch (Exception ex)
+            catch
             {
-                this.Invoke((MethodInvoker)delegate
+                this.Invoke(new MethodInvoker(delegate
                 {
-                    // 显示错误
-                    if (languageCopyButtons.TryGetValue(language.Name, out Button btn))
+                    if (languageCopyButtons.TryGetValue(language.Name, out Button langBtn))
                     {
-                        btn.Text = $"{language.Name}({language.Code}) 翻译失败";
-                        btn.BackColor = Color.FromArgb(231, 76, 60);
+                        langBtn.Text = string.Format("{0} 翻译失败", language.Name);
+                        langBtn.BackColor = Color.FromArgb(220, 53, 69);
                     }
-                });
-            }
-        }
-
-        private void CreateLanguageCopyButtons()
-        {
-            languageButtonsPanel.Controls.Clear();
-            languageCopyButtons.Clear();
-
-            // 增大按钮宽度以适应编码显示
-            int buttonWidth = 150; // 从95增加到120
-            int buttonMargin = 6;
-            int panelWidth = languageButtonsPanel.Width - languageButtonsPanel.Padding.Horizontal;
-            int buttonsPerRow = Math.Max(1, panelWidth / (buttonWidth + buttonMargin));
-
-            foreach (var language in languages)
-            {
-                Button btn = new Button
-                {
-                    // 确保这里显示编码
-                    Text = $"{language.Name}({language.Code})",
-                    Font = new Font("微软雅黑", 8.5f), // 稍微减小字体以适应更多内容
-                    Size = new Size(150, 28), // 增大宽度
-                    Margin = new Padding(3, 3, 3, 3),
-                    BackColor = Color.FromArgb(200, 200, 200),
-                    ForeColor = Color.White,
-                    FlatStyle = FlatStyle.Flat,
-                    Cursor = Cursors.Hand,
-                    Tag = language, // 改为存储整个LanguageInfo对象，方便后续使用
-                    Enabled = false,
-                    TextAlign = ContentAlignment.MiddleCenter
-                };
-                btn.FlatAppearance.BorderSize = 0;
-                btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(52, 152, 219);
-
-                // 更新工具提示
-                ToolTip toolTip = new ToolTip();
-                toolTip.SetToolTip(btn, $"复制 {language.Name}({language.Code}) 的翻译结果");
-
-                btn.Click += BtnCopyLanguage_Click;
-
-                languageButtonsPanel.Controls.Add(btn);
-                languageCopyButtons[language.Name] = btn;
+                }));
             }
         }
 
         private void BtnCopyLanguage_Click(object sender, EventArgs e)
         {
-            var button = sender as Button;
-            if (button == null) return;
+            Button btn = sender as Button;
+            if (btn == null) return;
 
-            // 现在Tag存储的是LanguageInfo对象
-            var languageInfo = button.Tag as LanguageInfo;
-            if (languageInfo == null) return;
+            LanguageInfo langInfo = btn.Tag as LanguageInfo;
+            if (langInfo == null) return;
 
             try
             {
                 StringBuilder sb = new StringBuilder();
-
-                if (translations.TryGetValue(languageInfo.Name, out var langTranslations))
+                if (translations.TryGetValue(langInfo.Name, out Dictionary<int, string> langTranslations))
                 {
                     for (int i = 0; i < sourceTexts.Length; i++)
                     {
-                        if (langTranslations.TryGetValue(i, out string translation))
+                        if (langTranslations.TryGetValue(i, out string translationText))
                         {
                             string prefix = prefixTextBoxes[i].Text.Trim();
-                            if (string.IsNullOrEmpty(prefix))
+                            if (string.IsNullOrWhiteSpace(prefix))
                             {
-                                prefix = $"Message{i + 1}";
+                                prefix = string.Format("Message{0}", i + 1);
                             }
 
-                            sb.AppendLine($"  \"{prefix}\": \"{translation.Replace("\"", "\\\"")}\",");
+                            // 转义双引号，兼容格式要求
+                            string escapedText = translationText.Replace("\"", "\\\"");
+                            sb.AppendLine(string.Format("  \"{0}\": \"{1}\",", prefix, escapedText));
                         }
                     }
 
+                    // 移除最后一行的多余逗号（兼容4.7.2）
                     if (sb.Length > 0)
                     {
                         sb.Length = sb.Length - Environment.NewLine.Length - 1;
                     }
                 }
 
+                // 在复制之前，先显示到预览框
+                if (previewTextBox != null)
+                {
+                    previewTextBox.Text = sb.ToString();
+                }
+
+                // 复制到剪贴板（4.7.2 支持）
                 Clipboard.SetText(sb.ToString());
 
-                // 显示成功提示
-                button.Text = "✅ 已复制!";
-                button.BackColor = Color.FromArgb(46, 204, 113);
+                // 复制成功反馈
+                string originalText = btn.Text;
+                btn.Text = "✅ 已复制！";
+                btn.BackColor = Color.FromArgb(19, 161, 13);
 
-                Timer timer = new Timer { Interval = 1500 };
-                timer.Tick += (s, args) =>
+                // 定时器恢复按钮文本（4.7.2 支持 Timer）
+                Timer timer = new Timer();
+                timer.Interval = 1500;
+                timer.Tick += new EventHandler(delegate (object s, EventArgs args)
                 {
-                    // 使用存储的LanguageInfo对象来重置文本
-                    button.Text = $"{languageInfo.Name}({languageInfo.Code})";
-                    button.BackColor = Color.FromArgb(52, 152, 219);
+                    btn.Text = originalText;
+                    btn.BackColor = Color.FromArgb(25, 135, 84);
                     timer.Stop();
                     timer.Dispose();
-                };
+                });
                 timer.Start();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"复制失败: {ex.Message}", "错误",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(string.Format("复制失败: {0}", ex.Message), "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
