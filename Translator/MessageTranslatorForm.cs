@@ -61,7 +61,7 @@ namespace Translator
         {
             this.SuspendLayout();
             this.BackColor = Color.FromArgb(248, 249, 250);
-            this.ClientSize = new Size(1200, 768);
+            this.ClientSize = new Size(1200, 775);
             this.Font = new Font("微软雅黑", 9.5F);
             this.MinimumSize = new Size(1000, 680);
             this.Name = "MessageTranslatorForm";
@@ -136,7 +136,7 @@ namespace Translator
             {
                 ColumnCount = 2,
                 RowCount = sourceTexts.Length + 1,
-                Size = new Size(580, 45 + (sourceTexts.Length * 40)),  // 修改：表头45 + 内容行×40
+                Size = new Size(580, 45 + (sourceTexts.Length * 35)),  // 修改：表头45 + 内容行×40
                 BackColor = Color.White,
                 CellBorderStyle = TableLayoutPanelCellBorderStyle.Single
             };
@@ -176,8 +176,6 @@ namespace Translator
             // 内容行（每个控件独立占行，兼容4.7.2）
             for (int i = 0; i < sourceTexts.Length; i++)
             {
-                messageTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));  // 修改：从60F减少到40F
-
                 Label textLabel = new Label
                 {
                     Text = string.Format("{0}. {1}", i + 1, sourceTexts[i]), // 4.7.2 推荐用 string.Format 替代 $ 插值（虽然后者也支持，更稳妥）
@@ -197,7 +195,7 @@ namespace Translator
                     BackColor = Color.FromArgb(248, 249, 250),
                     BorderStyle = BorderStyle.FixedSingle,
                     TextAlign = HorizontalAlignment.Center,
-                    Padding = new Padding(5)  // 修改：从8减少到5，适应更小的高度
+                    Padding = new Padding(4)  // 修改：从8减少到5，适应更小的高度
                 };
                 // 4.7.2 支持匿名方法，保留焦点切换样式
                 prefixBox.Enter += (s, e) => { prefixBox.BackColor = Color.FromArgb(230, 245, 255); };
@@ -247,7 +245,7 @@ namespace Translator
             bottomButtonPanel = new Panel
             {
                 Location = new Point(20, 580),  // 修改：从620改为600（向上移动20像素）
-                Size = new Size(1140, 250),
+                Size = new Size(1140, 185),
                 BackColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle
             };
