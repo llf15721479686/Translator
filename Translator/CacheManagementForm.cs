@@ -57,7 +57,7 @@ namespace Translator
                 SetColumnFillWeights();
             }
         }
-        // 单独封装列宽比例设置，避免重复代码
+        // 修改列宽比例设置，考虑复选框列
         private void SetColumnFillWeights()
         {
             if (dgvCache == null || dgvCache.Columns == null) return;
@@ -71,7 +71,8 @@ namespace Translator
                 }
             }
 
-            // 核心调整：大幅降低SourceText权重，微调其他列，保证最后一列显示
+            // 调整列权重，考虑新增的复选框列
+            SetWeight("SelectColumn", 3);   // 复选框列
             SetWeight("Id", 5);
             SetWeight("SourceText", 15); // 从25降到18，减少宽度
             SetWeight("SourceLanguage", 8);
@@ -79,8 +80,76 @@ namespace Translator
             SetWeight("TranslatedText", 22); // 适度降低，腾出空间
             SetWeight("CreatedTime", 12);
             SetWeight("LastUsedTime", 12);
-            SetWeight("UseCount", 8); // 从1升到5，保证最后一列能显示
+            SetWeight("UseCount", 8);
         }
+        // 新增：删除选中按钮的点击事件
+        private void btnDeleteSelected_Click(object sender, EventArgs e)
+        {
+            // 获取选中的行
+            var selectedRows = new List<DataGridViewRow>();
+            var selectedIds = new List<int>();
+
+            foreach (DataGridViewRow row in dgvCache.Rows)
+            {
+                // 跳过新行（如果有）
+                if (row.IsNewRow) continue;
+
+                // 检查复选框是否被选中
+                var checkCell = row.Cells["SelectColumn"] as DataGridViewCheckBoxCell;
+                if (checkCell != null && checkCell.Value != null && Convert.ToBoolean(checkCell.Value))
+                {
+                    selectedRows.Add(row);
+
+                    // 获取该行的Id
+                    if (row.Cells["Id"].Value != null && int.TryParse(row.Cells["Id"].Value.ToString(), out int id))
+                    {
+                        selectedIds.Add(id);
+                    }
+                }
+            }
+
+            // 如果没有选中任何行
+            if (selectedIds.Count == 0)
+            {
+                MessageBox.Show("请先选择要删除的记录", "提示",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            // 确认删除
+            if (MessageBox.Show($"确定要删除选中的 {selectedIds.Count} 条记录吗？", "确认删除",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
+                return;
+
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    // 构建IN语句参数
+                    string idList = string.Join(",", selectedIds);
+                    string query = $"DELETE FROM TranslationCache WHERE Id IN ({idList})";
+
+                    using (var command = new SqlCommand(query, connection))
+                    {
+                        int deletedRows = command.ExecuteNonQuery();
+
+                        MessageBox.Show($"已成功删除 {deletedRows} 条记录",
+                            "删除成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        // 刷新数据
+                        LoadCacheData();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"删除失败: {ex.Message}", "错误",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
 
         // 完全重构 Resize 事件，移除所有手动调整尺寸的代码
         private void CacheManagementForm_Resize(object sender, EventArgs e)
@@ -105,6 +174,7 @@ namespace Translator
 
 
         // 补充：在 LoadCacheData 后调用列宽设置，确保数据加载后列宽正确
+        // 在 LoadCacheData 方法中修改，添加复选框列
         private void LoadCacheData()
         {
             // 初始化空表格，避免null导致判断异常
@@ -153,6 +223,9 @@ namespace Translator
 
                     dgvCache.DataSource = cacheDataTable;
 
+                    // 添加复选框列（如果不存在）
+                    AddCheckBoxColumn();
+
                     dgvCache.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
                     if (dgvCache.Columns.Count > 0)
                     {
@@ -169,6 +242,30 @@ namespace Translator
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             UpdateStatistics();
+        }
+
+        // 添加复选框列的方法
+        private void AddCheckBoxColumn()
+        {
+            // 如果已经存在复选框列，先移除
+            if (dgvCache.Columns.Contains("SelectColumn"))
+            {
+                dgvCache.Columns.Remove("SelectColumn");
+            }
+
+            // 创建复选框列
+            DataGridViewCheckBoxColumn checkBoxColumn = new DataGridViewCheckBoxColumn();
+            checkBoxColumn.HeaderText = "选择";
+            checkBoxColumn.Name = "SelectColumn";
+            checkBoxColumn.Width = 50;
+            checkBoxColumn.FillWeight = 3; // 设置权重，比Id列小一点
+
+            // 添加到第一列
+            dgvCache.Columns.Insert(0, checkBoxColumn);
+
+            // 确保复选框居中显示
+            checkBoxColumn.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            checkBoxColumn.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
         }
         private void UpdatePaginationInfo()
         {
@@ -268,6 +365,7 @@ namespace Translator
             SearchCacheData();
         }
 
+        // 修改搜索方法，确保搜索后复选框列仍然存在
         private void SearchCacheData()
         {
             if (cacheDataTable == null) return;
@@ -276,6 +374,11 @@ namespace Translator
             if (string.IsNullOrEmpty(searchText))
             {
                 dgvCache.DataSource = cacheDataTable;
+
+                // 重新添加复选框列
+                AddCheckBoxColumn();
+                SetColumnFillWeights();
+
                 UpdateStatistics();
                 return;
             }
@@ -294,6 +397,11 @@ namespace Translator
                 {
                     DataTable filteredTable = filteredRows.CopyToDataTable();
                     dgvCache.DataSource = filteredTable;
+
+                    // 重新添加复选框列
+                    AddCheckBoxColumn();
+                    SetColumnFillWeights();
+
                     lblStatistics.Text = $"找到 {filteredTable.Rows.Count} 条匹配记录";
                 }
                 else
@@ -309,6 +417,8 @@ namespace Translator
             }
         }
 
+
+        // 在刷新数据时，确保复选框状态被清除
         private void btnRefresh_Click(object sender, EventArgs e)
         {
             LoadCacheData();

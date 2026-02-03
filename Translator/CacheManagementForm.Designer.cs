@@ -20,7 +20,8 @@
         private System.Windows.Forms.Panel panelContent;
         // 新增FlowLayoutPanel用于布局搜索相关控件
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanelSearch;
-
+        // 新增按钮
+        private System.Windows.Forms.Button btnDeleteSelected;
         private System.Windows.Forms.Label lblPageInfo;
         private System.Windows.Forms.Button btnFirst;
         private System.Windows.Forms.Button btnPrev;
@@ -39,6 +40,7 @@
 
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();  // 添加这行
             this.dgvCache = new System.Windows.Forms.DataGridView();
             this.txtSearch = new System.Windows.Forms.TextBox();
             this.btnSearch = new System.Windows.Forms.Button();
@@ -49,7 +51,7 @@
             this.lblStatistics = new System.Windows.Forms.Label();
             this.lblTotal = new System.Windows.Forms.Label();
             this.btnDeleteAll = new System.Windows.Forms.Button();
-
+            this.btnDeleteSelected = new System.Windows.Forms.Button();  // 添加这行初始化
             this.panelTop = new System.Windows.Forms.Panel();
             this.panelBottom = new System.Windows.Forms.Panel();
 
@@ -81,6 +83,8 @@
             this.flowLayoutPanelSearch.Controls.Add(this.btnRefresh);
             this.flowLayoutPanelSearch.Controls.Add(this.btnClearOld);
             this.flowLayoutPanelSearch.Controls.Add(this.btnExport);
+            this.flowLayoutPanelSearch.Controls.Add(this.btnDeleteSelected);  // 先添加删除选中按钮
+            this.flowLayoutPanelSearch.Controls.Add(this.btnDeleteAll);       // 再添加清空所有按钮
             this.flowLayoutPanelSearch.Controls.Add(this.btnDeleteAll);
             this.flowLayoutPanelSearch.Location = new System.Drawing.Point(12, 10);
             this.flowLayoutPanelSearch.Margin = new System.Windows.Forms.Padding(0);
@@ -182,13 +186,27 @@
             this.btnDeleteAll.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
             this.btnDeleteAll.ForeColor = System.Drawing.Color.Red;
             this.btnDeleteAll.Margin = new System.Windows.Forms.Padding(5, 5, 5, 5);
-            this.btnDeleteAll.Location = new System.Drawing.Point(650, 5);
+            this.btnDeleteAll.Location = new System.Drawing.Point(760, 5);  // 位置从650改为760
             this.btnDeleteAll.Name = "btnDeleteAll";
             this.btnDeleteAll.Size = new System.Drawing.Size(100, 25);
-            this.btnDeleteAll.TabIndex = 9;
+            this.btnDeleteAll.TabIndex = 11;
             this.btnDeleteAll.Text = "清空所有";
             this.btnDeleteAll.UseVisualStyleBackColor = true;
             this.btnDeleteAll.Click += new System.EventHandler(this.btnDeleteAll_Click);
+
+            // 
+            // btnDeleteSelected
+            // 
+            this.btnDeleteSelected.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
+            this.btnDeleteSelected.ForeColor = System.Drawing.Color.OrangeRed;
+            this.btnDeleteSelected.Margin = new System.Windows.Forms.Padding(5, 5, 5, 5);
+            this.btnDeleteSelected.Location = new System.Drawing.Point(650, 5);
+            this.btnDeleteSelected.Name = "btnDeleteSelected";
+            this.btnDeleteSelected.Size = new System.Drawing.Size(100, 25);
+            this.btnDeleteSelected.TabIndex = 10;
+            this.btnDeleteSelected.Text = "删除选中";
+            this.btnDeleteSelected.UseVisualStyleBackColor = true;
+            this.btnDeleteSelected.Click += new System.EventHandler(this.btnDeleteSelected_Click);
 
             // 
             // panelTop

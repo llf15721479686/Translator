@@ -40,9 +40,10 @@ namespace Translator
         {
             return new List<LanguageInfo>
             {
-                new LanguageInfo { Name = "英语", Code = "1033" },
+                
                 new LanguageInfo { Name = "阿拉伯语", Code = "1025" },
                 new LanguageInfo { Name = "德语", Code = "1031" },
+                new LanguageInfo { Name = "英语", Code = "1033" },
                 new LanguageInfo { Name = "法语", Code = "1036" },
                 new LanguageInfo { Name = "意大利语", Code = "1040" },
                 new LanguageInfo { Name = "葡萄牙语", Code = "1046" },
@@ -51,6 +52,7 @@ namespace Translator
                 new LanguageInfo { Name = "印度尼西亚语", Code = "1057" },
                 new LanguageInfo { Name = "越南语", Code = "1066" },
                 new LanguageInfo { Name = "马来西亚", Code = "1086" },
+                new LanguageInfo { Name = "汉语", Code = "2052" },
                 new LanguageInfo { Name = "西班牙语", Code = "3082" }
             };
         }
@@ -148,7 +150,7 @@ namespace Translator
             Panel languagePanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 90, // 增加高度到90px，给两行按钮足够的空间
+                Height = 120, // 增加高度到120px，给两行按钮足够的空间
                 Padding = new Padding(10, 5, 10, 5),
                 Visible = false,
                 BackColor = Color.FromArgb(250, 250, 250),
@@ -357,10 +359,18 @@ namespace Translator
                 for (int i = 0; i < sourceTexts.Length; i++)
                 {
                     string text = sourceTexts[i];
+                    string result;
+
+                    // 特殊处理：如果是汉语，直接使用原文，不翻译
+                    if (language.Name == "汉语")
+                    {
+                        result = text; // 直接使用原文
+                        langTranslations[i] = result;
+                        continue; // 跳过后续的翻译流程
+                    }
 
                     // 检查缓存
                     string cached = DatabaseHelper.GetCachedTranslation(text, "中文", language.Name);
-                    string result;
 
                     if (!string.IsNullOrEmpty(cached))
                     {
